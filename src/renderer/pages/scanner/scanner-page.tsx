@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { Play, Loader2, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@renderer/lib/utils';
@@ -13,6 +13,7 @@ import { HistoryPanel } from './history-panel';
 export function ScannerPage(): React.JSX.Element {
   const store = useScannerStore();
   const { navigateTo } = useNavStore();
+  const settingsLoaded = useRef(false);
 
   const isScanning = store.scanState.status === 'scanning';
   const isComplete = store.scanState.status === 'complete';
@@ -62,11 +63,31 @@ export function ScannerPage(): React.JSX.Element {
         }
       } catch {
         // Settings unavailable — use defaults
+      } finally {
+        settingsLoaded.current = true;
       }
     };
     void loadSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-save settings whenever they change (debounced)
+  const { organization, pat, project, selectedVersions, selectedBranches } = store;
+  useEffect(() => {
+    if (!settingsLoaded.current) return;
+
+    const timer = setTimeout(() => {
+      void Promise.all([
+        ipcClient.settings.set('lastOrganization', organization),
+        ipcClient.settings.set('lastPat', pat),
+        ipcClient.settings.set('lastProject', project),
+        ipcClient.settings.set('lastVersions', JSON.stringify(selectedVersions)),
+        ipcClient.settings.set('lastBranches', JSON.stringify(selectedBranches)),
+      ]).catch(() => { /* non-critical */ });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [organization, pat, project, selectedVersions, selectedBranches]);
 
   // Load history on mount
   useEffect(() => {
@@ -76,19 +97,6 @@ export function ScannerPage(): React.JSX.Element {
 
   const handleScan = useCallback(async () => {
     if (!canScan) return;
-
-    // Save all settings before scanning
-    try {
-      await Promise.all([
-        ipcClient.settings.set('lastOrganization', store.organization),
-        ipcClient.settings.set('lastPat', store.pat),
-        ipcClient.settings.set('lastProject', store.project),
-        ipcClient.settings.set('lastVersions', JSON.stringify(store.selectedVersions)),
-        ipcClient.settings.set('lastBranches', JSON.stringify(store.selectedBranches)),
-      ]);
-    } catch {
-      // Non-critical — continue scanning
-    }
 
     toast.info('Escaneo iniciado', { description: `Organización: ${store.organization}` });
     await store.startScan();
