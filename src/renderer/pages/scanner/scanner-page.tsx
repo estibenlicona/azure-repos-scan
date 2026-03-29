@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Play, Loader2 } from 'lucide-react';
+import { Play, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@renderer/lib/utils';
 import { useScannerStore } from '@renderer/stores/scanner-store';
 import { ipcClient } from '@renderer/lib/ipc-client';
@@ -14,6 +15,8 @@ export function ScannerPage(): React.JSX.Element {
   const [isExporting, setIsExporting] = useState(false);
 
   const isScanning = store.scanState.status === 'scanning';
+  const isComplete = store.scanState.status === 'complete';
+  const isError = store.scanState.status === 'error';
   const canScan = store.organization.trim() !== '' && store.pat.trim() !== '' && !isScanning;
 
   const progress =
@@ -60,7 +63,16 @@ export function ScannerPage(): React.JSX.Element {
       // Non-critical — continue scanning
     }
 
+    toast.info('Escaneo iniciado', { description: `Organización: ${store.organization}` });
     await store.startScan();
+
+    // Show result toast after scan completes
+    const state = useScannerStore.getState().scanState;
+    if (state.status === 'complete') {
+      toast.success('Escaneo completado', { description: `${state.hits.length} resultados encontrados` });
+    } else if (state.status === 'error') {
+      toast.error('Error en el escaneo', { description: state.message });
+    }
   }, [canScan, store]);
 
   const handleExport = useCallback(async () => {
@@ -77,14 +89,16 @@ export function ScannerPage(): React.JSX.Element {
 
       if (result && typeof result === 'string') {
         await ipcClient.export.excel(hits, result);
+        toast.success('Exportación completada');
       } else if (result && typeof result === 'object' && 'filePath' in result) {
         const filePath = (result as { filePath?: string }).filePath;
         if (filePath) {
           await ipcClient.export.excel(hits, filePath);
+          toast.success('Exportación completada');
         }
       }
     } catch {
-      // Export failed silently
+      toast.error('Error al exportar');
     } finally {
       setIsExporting(false);
     }
@@ -113,9 +127,47 @@ export function ScannerPage(): React.JSX.Element {
           ) : (
             <Play className="h-4 w-4" />
           )}
-          {isScanning ? 'Escaneando...' : '▶ Escanear'}
+          {isScanning ? 'Escaneando...' : 'Escanear'}
         </button>
       </div>
+
+      {/* Progress / Status banner — always visible right below header */}
+      {isScanning && (
+        <div className="animate-fade-in rounded-lg border border-border bg-card p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-sm font-medium">Escaneando repositorios…</span>
+          </div>
+          <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+            <span>{progressMessage || 'Iniciando escaneo...'}</span>
+            <span>{progress}%</span>
+          </div>
+          <div className="h-2.5 overflow-hidden rounded-full bg-secondary">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-300 ease-in-out"
+              style={{ width: `${Math.max(progress, 2)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {isComplete && store.filteredHits.length > 0 && (
+        <div className="animate-fade-in flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+          <CheckCircle2 className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">
+            Escaneo completado — {store.filteredHits.length} resultados encontrados
+          </span>
+        </div>
+      )}
+
+      {isError && (
+        <div className="animate-fade-in flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3">
+          <AlertCircle className="h-4 w-4 text-destructive" />
+          <span className="text-sm text-destructive">
+            {store.scanState.status === 'error' ? store.scanState.message : 'Error desconocido'}
+          </span>
+        </div>
+      )}
 
       {/* Main grid */}
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
@@ -156,29 +208,6 @@ export function ScannerPage(): React.JSX.Element {
           />
         </div>
       </div>
-
-      {/* Progress bar */}
-      {isScanning && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{progressMessage}</span>
-            <span>{progress}%</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-secondary">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-300 ease-in-out"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Error message */}
-      {store.scanState.status === 'error' && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {store.scanState.message}
-        </div>
-      )}
 
       {/* Results */}
       <ResultsTable
