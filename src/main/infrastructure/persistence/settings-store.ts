@@ -22,6 +22,21 @@ export class SettingsStore {
     await this.writeAll(data);
   }
 
+  async setMultiple(entries: Record<string, string>): Promise<void> {
+    const data = await this.readAll();
+    Object.assign(data, entries);
+    await this.writeAll(data);
+  }
+
+  async getMultiple(keys: string[]): Promise<Record<string, string>> {
+    const data = await this.readAll();
+    const result: Record<string, string> = {};
+    for (const key of keys) {
+      if (data[key] !== undefined) result[key] = data[key];
+    }
+    return result;
+  }
+
   private async readAll(): Promise<Record<string, string>> {
     try {
       const content = await readFile(this.filePath, 'utf-8');

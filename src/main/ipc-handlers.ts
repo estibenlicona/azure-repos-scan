@@ -154,6 +154,16 @@ export function registerAppIpcHandlers(getMainWindow: () => BrowserWindow | null
     await settingsStore.set(key, value);
   });
 
+  // settings:getBatch — get multiple keys in a single read
+  ipcMain.handle('settings:getBatch', async (_event, keys: string[]) => {
+    return settingsStore.getMultiple(keys);
+  });
+
+  // settings:setBatch — set multiple keys in a single write (avoids race conditions)
+  ipcMain.handle('settings:setBatch', async (_event, entries: Record<string, string>) => {
+    await settingsStore.setMultiple(entries);
+  });
+
   // projects:list
   ipcMain.handle('projects:list', async (_event, params: {
     organization: string;

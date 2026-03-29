@@ -38,6 +38,8 @@ export interface ElectronAPI {
   showSaveDialog: (options: SaveDialogOptions) => Promise<string | null>;
   settingsGet: (key: string) => Promise<string>;
   settingsSet: (key: string, value: string) => Promise<void>;
+  settingsGetBatch: (keys: string[]) => Promise<Record<string, string>>;
+  settingsSetBatch: (entries: Record<string, string>) => Promise<void>;
   listProjects: (params: { organization: string; pat: string }) => Promise<unknown[]>;
 }
 

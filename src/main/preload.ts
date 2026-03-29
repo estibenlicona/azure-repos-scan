@@ -59,6 +59,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   settingsSet: (key: string, value: string): Promise<void> =>
     ipcRenderer.invoke('settings:set', key, value),
 
+  settingsGetBatch: (keys: string[]): Promise<Record<string, string>> =>
+    ipcRenderer.invoke('settings:getBatch', keys),
+
+  settingsSetBatch: (entries: Record<string, string>): Promise<void> =>
+    ipcRenderer.invoke('settings:setBatch', entries),
+
   // Projects
   listProjects: (params: {
     organization: string;

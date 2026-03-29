@@ -31,19 +31,15 @@ export function ScannerPage(): React.JSX.Element {
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
       try {
-        const [org, pat, project, versions, branches] = await Promise.all([
-          ipcClient.settings.get('lastOrganization'),
-          ipcClient.settings.get('lastPat'),
-          ipcClient.settings.get('lastProject'),
-          ipcClient.settings.get('lastVersions'),
-          ipcClient.settings.get('lastBranches'),
+        const data = await ipcClient.settings.getBatch([
+          'lastOrganization', 'lastPat', 'lastProject', 'lastVersions', 'lastBranches',
         ]);
-        if (org) store.setOrganization(org as string);
-        if (pat) store.setPat(pat as string);
-        if (project) store.setProject(project as string);
-        if (versions) {
+        if (data.lastOrganization) store.setOrganization(data.lastOrganization);
+        if (data.lastPat) store.setPat(data.lastPat);
+        if (data.lastProject) store.setProject(data.lastProject);
+        if (data.lastVersions) {
           try {
-            const parsed = JSON.parse(versions as string) as string[];
+            const parsed = JSON.parse(data.lastVersions) as string[];
             if (Array.isArray(parsed) && parsed.length > 0) {
               store.selectNoVersions();
               for (const v of parsed) {
@@ -52,9 +48,9 @@ export function ScannerPage(): React.JSX.Element {
             }
           } catch { /* use defaults */ }
         }
-        if (branches) {
+        if (data.lastBranches) {
           try {
-            const parsed = JSON.parse(branches as string) as string[];
+            const parsed = JSON.parse(data.lastBranches) as string[];
             if (Array.isArray(parsed)) {
               store.selectNoBranches();
               for (const b of parsed) store.toggleBranch(b);
@@ -71,19 +67,19 @@ export function ScannerPage(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-save settings whenever they change (debounced)
+  // Auto-save settings whenever they change (debounced, single atomic write)
   const { organization, pat, project, selectedVersions, selectedBranches } = store;
   useEffect(() => {
     if (!settingsLoaded.current) return;
 
     const timer = setTimeout(() => {
-      void Promise.all([
-        ipcClient.settings.set('lastOrganization', organization),
-        ipcClient.settings.set('lastPat', pat),
-        ipcClient.settings.set('lastProject', project),
-        ipcClient.settings.set('lastVersions', JSON.stringify(selectedVersions)),
-        ipcClient.settings.set('lastBranches', JSON.stringify(selectedBranches)),
-      ]).catch(() => { /* non-critical */ });
+      void ipcClient.settings.setBatch({
+        lastOrganization: organization,
+        lastPat: pat,
+        lastProject: project,
+        lastVersions: JSON.stringify(selectedVersions),
+        lastBranches: JSON.stringify(selectedBranches),
+      }).catch(() => { /* non-critical */ });
     }, 500);
 
     return () => clearTimeout(timer);

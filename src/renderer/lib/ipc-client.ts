@@ -29,6 +29,8 @@ export const ipcClient = {
   settings: {
     get: (key: string) => getApi().settingsGet(key),
     set: (key: string, value: string) => getApi().settingsSet(key, value),
+    getBatch: (keys: string[]) => getApi().settingsGetBatch(keys),
+    setBatch: (entries: Record<string, string>) => getApi().settingsSetBatch(entries),
   },
   projects: {
     list: (org: string, pat: string) => getApi().listProjects({ organization: org, pat }),
