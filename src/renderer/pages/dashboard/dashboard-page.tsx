@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Database, FileCode2, Crown, GitBranch, Download, Loader2, AlertCircle, Inbox } from 'lucide-react';
 import { cn } from '@renderer/lib/utils';
 import { getVersionLabel } from '@renderer/lib/version-utils';
@@ -7,17 +7,67 @@ import { VersionDonutChart } from './charts/version-donut-chart';
 import { BranchDonutChart } from './charts/branch-donut-chart';
 import { EvolutionChart } from './charts/evolution-chart';
 import { useDashboardStore } from '@renderer/stores/dashboard-store';
+import { ipcClient } from '@renderer/lib/ipc-client';
+import { toast } from 'sonner';
 
 // ── Dashboard Page ───────────────────────────────────────────────────────────
 
 export function DashboardPage(): React.JSX.Element {
   const store = useDashboardStore();
+  const [isExporting, setIsExporting] = useState(false);
 
   // Auto-refresh data when page mounts / navigated to
   useEffect(() => {
     void store.refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleExport = useCallback(async () => {
+    if (store.loadState.status !== 'loaded') return;
+    const data = store.loadState.data;
+
+    // Flatten reposByVersion into hits for export
+    const hits: Array<{ repositoryName: string; projectName: string; dotnetVersion: string; branch: string; csprojCount: number }> = [];
+    for (const [version, repos] of Object.entries(data.reposByVersion)) {
+      for (const repo of repos) {
+        for (const branch of repo.branches) {
+          hits.push({
+            repositoryName: repo.repositoryName,
+            projectName: repo.projectName,
+            dotnetVersion: version,
+            branch,
+            csprojCount: repo.csprojCount,
+          });
+        }
+      }
+    }
+
+    if (hits.length === 0) return;
+
+    try {
+      setIsExporting(true);
+      const result = await ipcClient.export.saveDialog({
+        title: 'Exportar dashboard',
+        defaultPath: `dashboard-${store.selectedDate}.xlsx`,
+        filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+      });
+
+      if (result && typeof result === 'string') {
+        await ipcClient.export.excel(hits, result);
+        toast.success('Exportación completada');
+      } else if (result && typeof result === 'object' && 'filePath' in result) {
+        const filePath = (result as { filePath?: string }).filePath;
+        if (filePath) {
+          await ipcClient.export.excel(hits, filePath);
+          toast.success('Exportación completada');
+        }
+      }
+    } catch {
+      toast.error('Error al exportar');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [store.loadState, store.selectedDate]);
 
   // Derive KPIs and chart data from loaded state
   const { totalRepos, totalCsprojs, dominantVersion, totalBranches, versionData, branchData } =
@@ -147,13 +197,18 @@ export function DashboardPage(): React.JSX.Element {
           </select>
 
           <button
-            onClick={() => { /* TODO: connect export */ }}
+            onClick={() => void handleExport()}
+            disabled={isExporting || store.loadState.status !== 'loaded'}
             className={cn(
               'flex items-center gap-1.5 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm',
-              'text-foreground transition-colors hover:bg-secondary/80',
+              'text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50',
             )}
           >
-            <Download className="h-3.5 w-3.5" />
+            {isExporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
             Exportar
           </button>
         </div>

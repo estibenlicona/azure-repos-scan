@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { Download, ChevronLeft, ChevronRight, Search, Loader2, Inbox, ArrowLeft } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { Download, ChevronLeft, ChevronRight, Search, Loader2, Inbox, ArrowLeft, History } from 'lucide-react';
 import { cn } from '@renderer/lib/utils';
 import { getVersionLabel, getVersionColor } from '@renderer/lib/version-utils';
 import { useScannerStore } from '@renderer/stores/scanner-store';
@@ -13,6 +13,13 @@ export function ResultsPage(): React.JSX.Element {
   const store = useScannerStore();
   const { navigateTo } = useNavStore();
   const [isExporting, setIsExporting] = useState(false);
+  const [isLoadingRecord, setIsLoadingRecord] = useState(false);
+
+  // Ensure history is loaded
+  useEffect(() => {
+    if (store.history.length === 0) void store.loadHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const hits = store.filteredHits;
   const totalPages = Math.max(1, Math.ceil(hits.length / store.pageSize));
@@ -50,6 +57,16 @@ export function ResultsPage(): React.JSX.Element {
     }
   }, [hits]);
 
+  const handleHistoryChange = useCallback(async (date: string) => {
+    if (!date) return;
+    setIsLoadingRecord(true);
+    try {
+      await store.loadHistoryRecord(date);
+    } finally {
+      setIsLoadingRecord(false);
+    }
+  }, [store]);
+
   return (
     <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
       {/* Header */}
@@ -69,19 +86,40 @@ export function ResultsPage(): React.JSX.Element {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void handleExport()}
-          disabled={isExporting || hits.length === 0}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
-          {isExporting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4" />
+        <div className="flex items-center gap-3">
+          {/* History selector */}
+          {store.history.length > 0 && (
+            <div className="flex items-center gap-2">
+              <History className="h-4 w-4 text-muted-foreground" />
+              <select
+                onChange={(e) => void handleHistoryChange(e.target.value)}
+                disabled={isLoadingRecord}
+                defaultValue=""
+                className="h-9 appearance-none rounded-md border border-border bg-input px-3 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="" disabled>Cargar consulta…</option>
+                {store.history.map((entry) => (
+                  <option key={entry.date} value={entry.date}>
+                    {entry.date} ({entry.count} resultados)
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
-          Exportar Excel
-        </button>
+          <button
+            type="button"
+            onClick={() => void handleExport()}
+            disabled={isExporting || hits.length === 0}
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Exportar Excel
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
