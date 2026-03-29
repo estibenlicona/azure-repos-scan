@@ -122,14 +122,9 @@ export class SearchDotNetProjectsUseCase {
       return this.fetchForProject(query, project, version, branches);
     }
 
-    // Org-level probe to get projects via facets
-    const baseFilters: Record<string, string[]> = {};
-    if (branches.length > 0) {
-      baseFilters["Branch"] = branches;
-    }
-
+    // Org-level probe WITHOUT branch filter to discover projects via facets.
+    // Branch filtering is applied later at the per-project level.
     const probe = await this.client.searchCode(query, null, 0, 1, {
-      filters: Object.keys(baseFilters).length > 0 ? baseFilters : undefined,
       includeFacets: true,
     });
 
@@ -173,9 +168,9 @@ export class SearchDotNetProjectsUseCase {
     branches: string[],
   ): Promise<CodeSearchHit[]> {
     if (branches.length === 0) {
-      // No branch filter: single call
+      // No branch filter: single call with project in URL path
       const filters = { Project: [project] };
-      const probe = await this.client.searchCode(query, null, 0, 1, {
+      const probe = await this.client.searchCode(query, project, 0, 1, {
         filters,
         includeFacets: true,
       });
@@ -187,11 +182,11 @@ export class SearchDotNetProjectsUseCase {
       );
     }
 
-    // With branches: one call per branch
+    // With branches: one call per branch, project in URL path
     const allHits: CodeSearchHit[] = [];
     for (const branch of branches) {
       const filters = { Branch: [branch], Project: [project] };
-      const probe = await this.client.searchCode(query, null, 0, 1, {
+      const probe = await this.client.searchCode(query, project, 0, 1, {
         filters,
         includeFacets: true,
       });

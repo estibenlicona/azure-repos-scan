@@ -32,8 +32,8 @@ export function registerAppIpcHandlers(getMainWindow: () => BrowserWindow | null
     const useCase = new SearchDotNetProjectsUseCase(client, queryStore, params.organization);
 
     const versions = params.versions
-      .map((v) => v as DotNetVersion)
-      .filter((v) => Object.values(DotNetVersion).includes(v));
+      .map((key) => DotNetVersion[key as keyof typeof DotNetVersion])
+      .filter((v): v is DotNetVersion => v !== undefined);
 
     const record = await useCase.execute({
       versions,
