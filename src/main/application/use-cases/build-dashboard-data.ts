@@ -9,6 +9,14 @@ import type {
 import { getDotNetSortKey } from "../../domain/models";
 import type { QueryStoragePort } from "../../domain/ports";
 
+/** Format a Date as YYYY-MM-DD using local timezone. */
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export interface DashboardData {
   readonly queryDate: string;
   readonly organization: string;
@@ -57,7 +65,7 @@ function groupHitsIntoRepos(
       oldestVersion: oldest,
       allVersions: versions,
       branches,
-      csprojCount: repoHits.length,
+      csprojCount: repoHits.reduce((sum, h) => sum + (h.csprojCount ?? 1), 0),
       hits: repoHits,
     });
   }
@@ -73,7 +81,9 @@ export class BuildDashboardDataUseCase {
     queryDate: string,
     branchFilter?: string,
   ): Promise<DashboardData | null> {
-    const record = await this.store.getQueryByDate(new Date(queryDate));
+    // Parse as local date (YYYY-MM-DD) to match how the store formats dates
+    const [y, m, d] = queryDate.split('-').map(Number) as [number, number, number];
+    const record = await this.store.getQueryByDate(new Date(y, m - 1, d));
     if (record === null) {
       return null;
     }
@@ -155,11 +165,25 @@ export class BuildDashboardDataUseCase {
     const records = await this.store.loadQueries();
     const dateSet = new Map<string, Date>();
     for (const r of records) {
-      const key = r.queryDate.toISOString().slice(0, 10);
+      const key = formatLocalDate(r.queryDate);
       if (!dateSet.has(key) || r.queryDate > dateSet.get(key)!) {
         dateSet.set(key, r.queryDate);
       }
     }
     return [...dateSet.values()].sort((a, b) => b.getTime() - a.getTime());
+  }
+
+  /** Get available dates with their result counts, most recent first. */
+  async getAvailableDatesWithCounts(): Promise<Array<{ date: Date; count: number }>> {
+    const records = await this.store.loadQueries();
+    const dateMap = new Map<string, { date: Date; count: number }>();
+    for (const r of records) {
+      const key = formatLocalDate(r.queryDate);
+      const existing = dateMap.get(key);
+      if (!existing || r.queryDate > existing.date) {
+        dateMap.set(key, { date: r.queryDate, count: r.totalResults });
+      }
+    }
+    return [...dateMap.values()].sort((a, b) => b.date.getTime() - a.date.getTime());
   }
 }

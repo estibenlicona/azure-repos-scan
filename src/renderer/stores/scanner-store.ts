@@ -9,6 +9,7 @@ export interface RendererCodeSearchHit {
   projectName: string;
   dotnetVersion: string;
   branch: string;
+  csprojCount: number;
 }
 
 export type ScanState =
@@ -26,6 +27,7 @@ interface ScannerState {
   scanState: ScanState;
   filteredHits: RendererCodeSearchHit[];
   versionFilter: string;
+  nameFilter: string;
   currentPage: number;
   pageSize: number;
   history: Array<{ date: string; count: number }>;
@@ -40,6 +42,7 @@ interface ScannerState {
   selectAllBranches: () => void;
   selectNoBranches: () => void;
   setVersionFilter: (filter: string) => void;
+  setNameFilter: (filter: string) => void;
   setCurrentPage: (page: number) => void;
   setPageSize: (size: number) => void;
   startScan: () => Promise<void>;
@@ -50,6 +53,22 @@ interface ScannerState {
 const ALL_VERSIONS: DotNetVersionId[] = ['Net31', 'Net50', 'Net60', 'Net70', 'Net80', 'Net90', 'Net100'];
 const DEFAULT_BRANCHES = ['develop', 'test', 'master'];
 
+function applyFilters(
+  hits: RendererCodeSearchHit[],
+  versionFilter: string,
+  nameFilter: string,
+): RendererCodeSearchHit[] {
+  let result = hits;
+  if (versionFilter && versionFilter !== 'all') {
+    result = result.filter((h) => h.dotnetVersion === versionFilter);
+  }
+  if (nameFilter.trim()) {
+    const term = nameFilter.trim().toLowerCase();
+    result = result.filter((h) => h.repositoryName.toLowerCase().includes(term));
+  }
+  return result;
+}
+
 export const useScannerStore = create<ScannerState>()((set, get) => ({
   organization: '',
   pat: '',
@@ -59,6 +78,7 @@ export const useScannerStore = create<ScannerState>()((set, get) => ({
   scanState: { status: 'idle' },
   filteredHits: [],
   versionFilter: 'all',
+  nameFilter: '',
   currentPage: 0,
   pageSize: 25,
   history: [],
@@ -88,8 +108,15 @@ export const useScannerStore = create<ScannerState>()((set, get) => ({
   setVersionFilter: (filter) => {
     set((state) => {
       const hits = state.scanState.status === 'complete' ? state.scanState.hits : [];
-      const filtered = filter === 'all' ? hits : hits.filter((h) => h.dotnetVersion === filter);
+      const filtered = applyFilters(hits, filter, state.nameFilter);
       return { versionFilter: filter, filteredHits: filtered, currentPage: 0 };
+    });
+  },
+  setNameFilter: (filter) => {
+    set((state) => {
+      const hits = state.scanState.status === 'complete' ? state.scanState.hits : [];
+      const filtered = applyFilters(hits, state.versionFilter, filter);
+      return { nameFilter: filter, filteredHits: filtered, currentPage: 0 };
     });
   },
   setCurrentPage: (page) => set({ currentPage: page }),
@@ -120,6 +147,9 @@ export const useScannerStore = create<ScannerState>()((set, get) => ({
         versionFilter: 'all',
         currentPage: 0,
       });
+
+      // Refresh history after successful scan
+      void get().loadHistory();
     } catch (error) {
       set({
         scanState: {
@@ -134,8 +164,8 @@ export const useScannerStore = create<ScannerState>()((set, get) => ({
 
   loadHistory: async () => {
     try {
-      const dates = await ipcClient.dashboard.dates();
-      set({ history: dates.map((d) => ({ date: d, count: 0 })) });
+      const entries = await ipcClient.dashboard.dates();
+      set({ history: entries.map((e) => ({ date: e.date, count: e.count })) });
     } catch {
       // Silently fail for history
     }
@@ -144,8 +174,38 @@ export const useScannerStore = create<ScannerState>()((set, get) => ({
   loadHistoryRecord: async (date) => {
     try {
       const result = await ipcClient.dashboard.load({ date });
-      const data = result as { hits?: RendererCodeSearchHit[] };
-      const hits = data?.hits ?? [];
+      const data = result as {
+        reposByVersion?: Record<string, Array<{
+          repositoryName: string;
+          projectName: string;
+          oldestVersion: string;
+          allVersions: string[];
+          branches: string[];
+          csprojCount: number;
+        }>>;
+      } | null;
+
+      if (!data?.reposByVersion) {
+        set({ scanState: { status: 'complete', hits: [] }, filteredHits: [], versionFilter: 'all', currentPage: 0 });
+        return;
+      }
+
+      // Flatten repo summaries into individual hits for the results table
+      const hits: RendererCodeSearchHit[] = [];
+      for (const [version, repos] of Object.entries(data.reposByVersion)) {
+        for (const repo of repos) {
+          for (const branch of repo.branches) {
+            hits.push({
+              repositoryName: repo.repositoryName,
+              projectName: repo.projectName,
+              dotnetVersion: version,
+              branch,
+              csprojCount: repo.csprojCount,
+            });
+          }
+        }
+      }
+
       set({
         scanState: { status: 'complete', hits },
         filteredHits: hits,

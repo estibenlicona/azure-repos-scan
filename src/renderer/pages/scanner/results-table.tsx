@@ -53,7 +53,7 @@ export function ResultsTable({
   onExport,
   isExporting,
 }: ResultsTableProps): React.JSX.Element {
-  const filtered = versionFilter
+  const filtered = versionFilter && versionFilter !== 'all'
     ? hits.filter((h) => h.dotnetVersion === versionFilter)
     : hits;
 

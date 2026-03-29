@@ -239,6 +239,7 @@ export interface CodeSearchHit {
   readonly projectName: string;
   readonly dotnetVersion: DotNetVersion;
   readonly branch: string;
+  readonly csprojCount: number;
 }
 
 export interface CodeSearchPage {

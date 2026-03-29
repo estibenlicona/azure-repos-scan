@@ -12,6 +12,7 @@ function makeHit(overrides: Partial<CodeSearchHit> = {}): CodeSearchHit {
     projectName: overrides.projectName ?? "proj-1",
     dotnetVersion: overrides.dotnetVersion ?? DotNetVersion.Net80,
     branch: overrides.branch ?? "develop",
+    csprojCount: overrides.csprojCount ?? 1,
   };
 }
 

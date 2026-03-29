@@ -10,20 +10,9 @@ import {
   Legend,
   Filler,
 } from 'chart.js';
+import { getVersionLabel, getVersionColor } from '@renderer/lib/version-utils';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
-
-const VERSION_COLORS: Record<string, string> = {
-  'net3.1': '#f85149',
-  'net5.0': '#f0883e',
-  'net6.0': '#d29922',
-  'net7.0': '#9f7aea',
-  'net8.0': '#00d4aa',
-  'net9.0': '#58a6ff',
-  'net10.0': '#3fb950',
-};
-
-const FALLBACK_COLOR = '#8b949e';
 
 interface MonthlySnapshot {
   month: string;
@@ -40,9 +29,9 @@ export function EvolutionChart({ data }: EvolutionChartProps): React.JSX.Element
   const allVersions = [...new Set(data.flatMap((s) => Object.keys(s.reposByVersion)))];
 
   const datasets = allVersions.map((version) => {
-    const color = VERSION_COLORS[version] ?? FALLBACK_COLOR;
+    const color = getVersionColor(version);
     return {
-      label: version,
+      label: getVersionLabel(version),
       data: data.map((s) => s.reposByVersion[version] ?? 0),
       borderColor: color,
       backgroundColor: `${color}33`,

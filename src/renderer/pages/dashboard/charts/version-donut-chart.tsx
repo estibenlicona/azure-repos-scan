@@ -1,19 +1,8 @@
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, type Plugin } from 'chart.js';
+import { getVersionLabel, getVersionColor } from '@renderer/lib/version-utils';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
-
-const VERSION_COLORS: Record<string, string> = {
-  'net3.1': '#f85149',
-  'net5.0': '#f0883e',
-  'net6.0': '#d29922',
-  'net7.0': '#9f7aea',
-  'net8.0': '#00d4aa',
-  'net9.0': '#58a6ff',
-  'net10.0': '#3fb950',
-};
-
-const FALLBACK_COLOR = '#8b949e';
 
 const centerTextPlugin: Plugin<'doughnut'> = {
   id: 'centerText',
@@ -41,9 +30,10 @@ interface VersionDonutChartProps {
 }
 
 export function VersionDonutChart({ data }: VersionDonutChartProps): React.JSX.Element {
-  const labels = Object.keys(data);
+  const keys = Object.keys(data);
+  const labels = keys.map(getVersionLabel);
   const values = Object.values(data);
-  const colors = labels.map((l) => VERSION_COLORS[l] ?? FALLBACK_COLOR);
+  const colors = keys.map(getVersionColor);
 
   const chartData = {
     labels,

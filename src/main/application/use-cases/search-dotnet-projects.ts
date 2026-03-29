@@ -219,6 +219,7 @@ export class SearchDotNetProjectsUseCase {
         projectName,
         dotnetVersion: version,
         branch,
+        csprojCount: repo.resultCount,
       }));
   }
 }

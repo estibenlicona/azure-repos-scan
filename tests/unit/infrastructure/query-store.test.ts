@@ -25,12 +25,14 @@ function makeHit(overrides: Partial<{
   projectName: string;
   dotnetVersion: typeof DotNetVersion[keyof typeof DotNetVersion];
   branch: string;
+  csprojCount: number;
 }> = {}) {
   return {
     repositoryName: overrides.repositoryName ?? 'my-repo',
     projectName: overrides.projectName ?? 'my-project',
     dotnetVersion: overrides.dotnetVersion ?? DotNetVersion.Net80,
     branch: overrides.branch ?? 'main',
+    csprojCount: overrides.csprojCount ?? 1,
   };
 }
 

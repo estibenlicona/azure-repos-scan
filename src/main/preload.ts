@@ -30,7 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     branchFilter?: string;
   }): Promise<unknown> => ipcRenderer.invoke('dashboard:load', params),
 
-  dashboardDates: (): Promise<string[]> => ipcRenderer.invoke('dashboard:dates'),
+  dashboardDates: (): Promise<Array<{ date: string; count: number }>> => ipcRenderer.invoke('dashboard:dates'),
 
   dashboardEvolution: (months?: number): Promise<unknown> =>
     ipcRenderer.invoke('dashboard:evolution', months),

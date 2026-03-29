@@ -58,6 +58,7 @@ interface HitDict {
   project_name: string;
   dotnet_version: string;
   branch: string;
+  csproj_count?: number;
 }
 
 interface RecordDict {
@@ -74,6 +75,7 @@ function hitToDict(hit: CodeSearchHit): HitDict {
     project_name: hit.projectName,
     dotnet_version: getDotNetMoniker(hit.dotnetVersion),
     branch: hit.branch,
+    csproj_count: hit.csprojCount,
   };
 }
 
@@ -85,6 +87,7 @@ function hitFromDict(d: HitDict): CodeSearchHit {
     projectName: d.project_name ?? '',
     dotnetVersion: version ?? ('NET_8' as DotNetVersion),
     branch: d.branch ?? '',
+    csprojCount: d.csproj_count ?? 1,
   };
 }
 

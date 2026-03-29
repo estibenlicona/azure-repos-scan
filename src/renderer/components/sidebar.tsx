@@ -1,7 +1,6 @@
-import { BarChart3, Search } from 'lucide-react';
+import { BarChart3, Search, Table2 } from 'lucide-react';
 import { cn } from '@renderer/lib/utils';
-
-export type PageId = 'dashboard' | 'scanner';
+import { useNavStore, type PageId } from '@renderer/stores/nav-store';
 
 interface SidebarProps {
   readonly activePage: PageId;
@@ -18,6 +17,7 @@ interface NavItem {
 const NAV_ITEMS: readonly NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', section: 'REPORTES', icon: <BarChart3 className="h-4 w-4" /> },
   { id: 'scanner', label: 'Escáner', section: 'HERRAMIENTAS', icon: <Search className="h-4 w-4" /> },
+  { id: 'results', label: 'Resultados', section: 'HERRAMIENTAS', icon: <Table2 className="h-4 w-4" /> },
 ];
 
 export function Sidebar({ activePage, onPageChange }: SidebarProps): React.JSX.Element {

@@ -54,8 +54,8 @@ export const useDashboardStore = create<DashboardState>()((set, get) => ({
 
   loadDates: async () => {
     try {
-      const dates = await ipcClient.dashboard.dates();
-      const sorted = dates.sort().reverse();
+      const entries = await ipcClient.dashboard.dates();
+      const sorted = entries.map((e) => e.date).sort().reverse();
       set({ availableDates: sorted });
       if (sorted.length > 0 && !get().selectedDate) {
         await get().selectDate(sorted[0]);

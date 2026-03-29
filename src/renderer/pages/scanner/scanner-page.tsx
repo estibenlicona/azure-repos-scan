@@ -1,18 +1,18 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Play, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useEffect, useCallback } from 'react';
+import { Play, Loader2, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@renderer/lib/utils';
 import { useScannerStore } from '@renderer/stores/scanner-store';
+import { useNavStore } from '@renderer/stores/nav-store';
 import { ipcClient } from '@renderer/lib/ipc-client';
 import { ConfigPanel } from './config-panel';
 import { VersionSelector } from './version-selector';
 import { BranchSelector } from './branch-selector';
-import { ResultsTable } from './results-table';
 import { HistoryPanel } from './history-panel';
 
 export function ScannerPage(): React.JSX.Element {
   const store = useScannerStore();
-  const [isExporting, setIsExporting] = useState(false);
+  const { navigateTo } = useNavStore();
 
   const isScanning = store.scanState.status === 'scanning';
   const isComplete = store.scanState.status === 'complete';
@@ -30,12 +30,36 @@ export function ScannerPage(): React.JSX.Element {
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
       try {
-        const [org, pat] = await Promise.all([
+        const [org, pat, project, versions, branches] = await Promise.all([
           ipcClient.settings.get('lastOrganization'),
           ipcClient.settings.get('lastPat'),
+          ipcClient.settings.get('lastProject'),
+          ipcClient.settings.get('lastVersions'),
+          ipcClient.settings.get('lastBranches'),
         ]);
         if (org) store.setOrganization(org as string);
         if (pat) store.setPat(pat as string);
+        if (project) store.setProject(project as string);
+        if (versions) {
+          try {
+            const parsed = JSON.parse(versions as string) as string[];
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              store.selectNoVersions();
+              for (const v of parsed) {
+                store.toggleVersion(v as import('@renderer/stores/scanner-store').DotNetVersionId);
+              }
+            }
+          } catch { /* use defaults */ }
+        }
+        if (branches) {
+          try {
+            const parsed = JSON.parse(branches as string) as string[];
+            if (Array.isArray(parsed)) {
+              store.selectNoBranches();
+              for (const b of parsed) store.toggleBranch(b);
+            }
+          } catch { /* use defaults */ }
+        }
       } catch {
         // Settings unavailable — use defaults
       }
@@ -53,11 +77,14 @@ export function ScannerPage(): React.JSX.Element {
   const handleScan = useCallback(async () => {
     if (!canScan) return;
 
-    // Save settings before scanning
+    // Save all settings before scanning
     try {
       await Promise.all([
         ipcClient.settings.set('lastOrganization', store.organization),
         ipcClient.settings.set('lastPat', store.pat),
+        ipcClient.settings.set('lastProject', store.project),
+        ipcClient.settings.set('lastVersions', JSON.stringify(store.selectedVersions)),
+        ipcClient.settings.set('lastBranches', JSON.stringify(store.selectedBranches)),
       ]);
     } catch {
       // Non-critical — continue scanning
@@ -75,34 +102,10 @@ export function ScannerPage(): React.JSX.Element {
     }
   }, [canScan, store]);
 
-  const handleExport = useCallback(async () => {
-    const hits = store.filteredHits;
-    if (hits.length === 0) return;
-
-    try {
-      setIsExporting(true);
-      const result = await ipcClient.export.saveDialog({
-        title: 'Exportar resultados',
-        defaultPath: `scan-results-${new Date().toISOString().slice(0, 10)}.xlsx`,
-        filters: [{ name: 'Excel', extensions: ['xlsx'] }],
-      });
-
-      if (result && typeof result === 'string') {
-        await ipcClient.export.excel(hits, result);
-        toast.success('Exportación completada');
-      } else if (result && typeof result === 'object' && 'filePath' in result) {
-        const filePath = (result as { filePath?: string }).filePath;
-        if (filePath) {
-          await ipcClient.export.excel(hits, filePath);
-          toast.success('Exportación completada');
-        }
-      }
-    } catch {
-      toast.error('Error al exportar');
-    } finally {
-      setIsExporting(false);
-    }
-  }, [store.filteredHits]);
+  const handleHistorySelect = useCallback(async (date: string) => {
+    await store.loadHistoryRecord(date);
+    navigateTo('results');
+  }, [store, navigateTo]);
 
   return (
     <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
@@ -152,11 +155,21 @@ export function ScannerPage(): React.JSX.Element {
       )}
 
       {isComplete && store.filteredHits.length > 0 && (
-        <div className="animate-fade-in flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
-          <CheckCircle2 className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">
-            Escaneo completado — {store.filteredHits.length} resultados encontrados
-          </span>
+        <div className="animate-fade-in flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">
+              Escaneo completado — {store.filteredHits.length} resultados encontrados
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigateTo('results')}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Ver resultados
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
@@ -202,25 +215,12 @@ export function ScannerPage(): React.JSX.Element {
         <div>
           <HistoryPanel
             history={store.history}
-            onSelect={(date) => void store.loadHistoryRecord(date)}
+            onSelect={(date) => void handleHistorySelect(date)}
             onRefresh={() => void store.loadHistory()}
             isLoading={false}
           />
         </div>
       </div>
-
-      {/* Results */}
-      <ResultsTable
-        hits={store.filteredHits}
-        versionFilter={store.versionFilter}
-        onVersionFilterChange={store.setVersionFilter}
-        currentPage={store.currentPage}
-        pageSize={store.pageSize}
-        onPageChange={store.setCurrentPage}
-        onPageSizeChange={store.setPageSize}
-        onExport={() => void handleExport()}
-        isExporting={isExporting}
-      />
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import { useEffect, useMemo } from 'react';
-import { Database, FileCode2, Crown, GitBranch, Download, Loader2, AlertCircle, Inbox } from 'lucide-react';
+import { Database, FileCode2, Crown, GitBranch, Loader2, AlertCircle, Inbox } from 'lucide-react';
 import { cn } from '@renderer/lib/utils';
+import { getVersionLabel } from '@renderer/lib/version-utils';
 import { KpiCard } from '@renderer/components/kpi-card';
 import { VersionDonutChart } from './charts/version-donut-chart';
 import { BranchDonutChart } from './charts/branch-donut-chart';
 import { EvolutionChart } from './charts/evolution-chart';
-import { RepoTreeTable } from './repo-tree-table';
 import { useDashboardStore } from '@renderer/stores/dashboard-store';
 
 // ── Dashboard Page ───────────────────────────────────────────────────────────
@@ -43,8 +43,9 @@ export function DashboardPage(): React.JSX.Element {
 
       const totalRepos = Object.values(versionData).reduce((a, b) => a + b, 0);
 
-      const dominantVersion =
+      const dominantKey =
         Object.entries(versionData).sort(([, a], [, b]) => b - a)[0]?.[0] ?? '—';
+      const dominantVersion = dominantKey === '—' ? '—' : getVersionLabel(dominantKey);
 
       // Branch distribution from all repo summaries
       const branchCounts: Record<string, number> = {};
@@ -220,14 +221,6 @@ export function DashboardPage(): React.JSX.Element {
         )}
       </ChartCard>
 
-      {/* ── Drill-down Table ────────────────────────────────────────── */}
-      <ChartCard title="Detalle por Repositorio">
-        {store.loadState.status === 'loaded' ? (
-          <RepoTreeTable reposByVersion={store.loadState.data.reposByVersion} />
-        ) : (
-          <EmptyState />
-        )}
-      </ChartCard>
     </div>
   );
 }

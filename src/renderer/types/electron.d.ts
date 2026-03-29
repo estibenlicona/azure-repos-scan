@@ -31,7 +31,7 @@ export interface ElectronAPI {
   scanStart: (params: ScanStartParams) => Promise<unknown>;
   onScanProgress: (callback: (data: ScanProgress) => void) => () => void;
   dashboardLoad: (params: DashboardLoadParams) => Promise<unknown>;
-  dashboardDates: () => Promise<string[]>;
+  dashboardDates: () => Promise<Array<{ date: string; count: number }>>;
   dashboardEvolution: (months?: number) => Promise<unknown>;
   exportExcel: (params: { hits: unknown[]; outputPath: string }) => Promise<string>;
   exportImage: (params: { imageData: string; outputPath: string }) => Promise<string>;

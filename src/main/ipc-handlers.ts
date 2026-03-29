@@ -10,10 +10,14 @@ import {
 } from './application/index.js';
 import {
   DotNetVersion,
-  getDotNetMoniker,
-  dotNetVersionFromMoniker,
 } from './domain/models.js';
 import type { CodeSearchHit } from './domain/models.js';
+
+/** Map a DotNetVersion value back to its key name (e.g. 'NET_8' → 'Net80'). */
+function getDotNetKey(version: string): string {
+  const entry = Object.entries(DotNetVersion).find(([, v]) => v === version);
+  return entry ? entry[0] : version;
+}
 
 const queryStore = new JsonQueryStore();
 const settingsStore = new SettingsStore();
@@ -47,22 +51,28 @@ export function registerAppIpcHandlers(getMainWindow: () => BrowserWindow | null
       },
     });
 
-    // Serialize hits for renderer
+    // Serialize hits for renderer (use key names like 'Net80' not monikers like 'net8.0')
     const hits = record.getAllHits().map((h) => ({
       repositoryName: h.repositoryName,
       projectName: h.projectName,
-      dotnetVersion: getDotNetMoniker(h.dotnetVersion),
+      dotnetVersion: getDotNetKey(h.dotnetVersion),
       branch: h.branch,
+      csprojCount: h.csprojCount,
     }));
 
     return { hits, queryDate: record.queryDate.toISOString(), totalResults: record.totalResults };
   });
 
-  // dashboard:dates — Get available query dates
+  // dashboard:dates — Get available query dates with counts
   ipcMain.handle('dashboard:dates', async () => {
     const dashboardUC = new BuildDashboardDataUseCase(queryStore);
-    const dates = await dashboardUC.getAvailableDates();
-    return dates.map((d) => d.toISOString().slice(0, 10));
+    const entries = await dashboardUC.getAvailableDatesWithCounts();
+    const result = entries.map((e) => {
+      const d = e.date;
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return { date: dateStr, count: e.count };
+    });
+    return result;
   });
 
   // dashboard:load — Load dashboard data for a date
@@ -85,12 +95,12 @@ export function registerAppIpcHandlers(getMainWindow: () => BrowserWindow | null
     }>> = {};
 
     for (const [version, summaries] of data.reposByVersion) {
-      const moniker = getDotNetMoniker(version);
-      reposByVersion[moniker] = summaries.map((s) => ({
+      const key = getDotNetKey(version);
+      reposByVersion[key] = summaries.map((s) => ({
         repositoryName: s.repositoryName,
         projectName: s.projectName,
-        oldestVersion: getDotNetMoniker(s.oldestVersion),
-        allVersions: Array.from(s.allVersions).map((v) => getDotNetMoniker(v)),
+        oldestVersion: getDotNetKey(s.oldestVersion),
+        allVersions: Array.from(s.allVersions).map((v) => getDotNetKey(v)),
         branches: Array.from(s.branches),
         csprojCount: s.csprojCount,
       }));
@@ -113,23 +123,23 @@ export function registerAppIpcHandlers(getMainWindow: () => BrowserWindow | null
     return snapshots.map((s) => ({
       month: s.month,
       reposByVersion: Object.fromEntries(
-        Array.from(s.reposByVersion.entries()).map(([k, v]) => [getDotNetMoniker(k), v]),
+        Array.from(s.reposByVersion.entries()).map(([k, v]) => [getDotNetKey(k), v]),
       ),
     }));
   });
 
   // export:excel — Export hits to Excel
   ipcMain.handle('export:excel', async (_event, params: {
-    hits: Array<{ repositoryName: string; projectName: string; dotnetVersion: string; branch: string }>;
+    hits: Array<{ repositoryName: string; projectName: string; dotnetVersion: string; branch: string; csprojCount?: number }>;
     outputPath: string;
   }) => {
     const exportUC = new ExportResultsUseCase();
-    // Convert renderer monikers back to domain CodeSearchHit objects
     const convertedHits: CodeSearchHit[] = params.hits.map((h) => ({
       repositoryName: h.repositoryName,
       projectName: h.projectName,
-      dotnetVersion: dotNetVersionFromMoniker(h.dotnetVersion) ?? DotNetVersion.Net80,
+      dotnetVersion: DotNetVersion[h.dotnetVersion as keyof typeof DotNetVersion] ?? DotNetVersion.Net80,
       branch: h.branch,
+      csprojCount: h.csprojCount ?? 1,
     }));
     return exportUC.execute(convertedHits, params.outputPath);
   });
