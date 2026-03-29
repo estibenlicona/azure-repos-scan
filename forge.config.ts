@@ -12,6 +12,8 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({
       name: 'AzureReposScan',
+      authors: 'Azure Repos Scan Team',
+      description: 'Azure DevOps repository scanner for .NET version tracking',
     }),
     new MakerZIP({}, ['win32']),
   ],
