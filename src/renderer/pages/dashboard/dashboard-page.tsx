@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { Database, FileCode2, Crown, GitBranch, Download, Loader2, AlertCircle, Inbox } from 'lucide-react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { Database, FileCode2, Crown, GitBranch, Camera, Loader2, AlertCircle, Inbox } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import { cn } from '@renderer/lib/utils';
 import { getVersionLabel } from '@renderer/lib/version-utils';
 import { KpiCard } from '@renderer/components/kpi-card';
@@ -15,6 +16,7 @@ import { toast } from 'sonner';
 export function DashboardPage(): React.JSX.Element {
   const store = useDashboardStore();
   const [isExporting, setIsExporting] = useState(false);
+  const dashboardRef = useRef<HTMLDivElement>(null);
 
   // Auto-refresh data when page mounts / navigated to
   useEffect(() => {
@@ -23,51 +25,32 @@ export function DashboardPage(): React.JSX.Element {
   }, []);
 
   const handleExport = useCallback(async () => {
-    if (store.loadState.status !== 'loaded') return;
-    const data = store.loadState.data;
-
-    // Flatten reposByVersion into hits for export
-    const hits: Array<{ repositoryName: string; projectName: string; dotnetVersion: string; branch: string; csprojCount: number }> = [];
-    for (const [version, repos] of Object.entries(data.reposByVersion)) {
-      for (const repo of repos) {
-        for (const branch of repo.branches) {
-          hits.push({
-            repositoryName: repo.repositoryName,
-            projectName: repo.projectName,
-            dotnetVersion: version,
-            branch,
-            csprojCount: repo.csprojCount,
-          });
-        }
-      }
-    }
-
-    if (hits.length === 0) return;
+    if (!dashboardRef.current) return;
 
     try {
       setIsExporting(true);
-      const result = await ipcClient.export.saveDialog({
-        title: 'Exportar dashboard',
-        defaultPath: `dashboard-${store.selectedDate}.xlsx`,
-        filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+
+      const filePath = await ipcClient.export.saveDialog({
+        title: 'Exportar dashboard como imagen',
+        defaultPath: `dashboard-${store.selectedDate || 'export'}.png`,
+        filters: [{ name: 'PNG', extensions: ['png'] }],
       });
 
-      if (result && typeof result === 'string') {
-        await ipcClient.export.excel(hits, result);
-        toast.success('Exportación completada');
-      } else if (result && typeof result === 'object' && 'filePath' in result) {
-        const filePath = (result as { filePath?: string }).filePath;
-        if (filePath) {
-          await ipcClient.export.excel(hits, filePath);
-          toast.success('Exportación completada');
-        }
-      }
+      if (!filePath) return;
+
+      const imageData = await toPng(dashboardRef.current, {
+        backgroundColor: '#0d1117',
+        pixelRatio: 2,
+      });
+
+      await ipcClient.export.image(imageData, filePath);
+      toast.success('Dashboard exportado como imagen');
     } catch {
-      toast.error('Error al exportar');
+      toast.error('Error al exportar el dashboard');
     } finally {
       setIsExporting(false);
     }
-  }, [store.loadState, store.selectedDate]);
+  }, [store.selectedDate]);
 
   // Derive KPIs and chart data from loaded state
   const { totalRepos, totalCsprojs, dominantVersion, totalBranches, versionData, branchData } =
@@ -159,7 +142,7 @@ export function DashboardPage(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
+    <div ref={dashboardRef} className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
       {/* ── Toolbar ─────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -207,9 +190,9 @@ export function DashboardPage(): React.JSX.Element {
             {isExporting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Download className="h-3.5 w-3.5" />
+              <Camera className="h-3.5 w-3.5" />
             )}
-            Exportar
+            Exportar imagen
           </button>
         </div>
       </div>
