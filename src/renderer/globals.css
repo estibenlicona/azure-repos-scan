@@ -49,6 +49,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* All interactive elements show pointer cursor */
+button,
+select,
+[role="button"] {
+  cursor: pointer;
+}
+
 /* Custom scrollbar for dark theme */
 ::-webkit-scrollbar {
   width: 8px;
