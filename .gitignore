@@ -1,0 +1,42 @@
+# Variables de entorno con secretos
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Archivos de resultados generados
+*.xlsx
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.spec
+
+# Virtual environment
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Tests
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+
+# Ruff
+.ruff_cache/
+
+# OS
+Thumbs.db
+.DS_Store
