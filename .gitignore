@@ -10,7 +10,6 @@
 # Node.js
 node_modules/
 dist/
-out/
 .vite/
 
 # Build artifacts
@@ -30,3 +29,4 @@ Thumbs.db
 
 # Electron
 out/
+!out/make/
