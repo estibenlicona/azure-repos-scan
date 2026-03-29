@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vite/
+out/
+*.lock
+.coverage/
+src/azure_repos_scan/
+tests/
+scripts/
