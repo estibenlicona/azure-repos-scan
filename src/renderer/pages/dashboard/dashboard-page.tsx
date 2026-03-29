@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Database, FileCode2, Crown, GitBranch, Loader2, AlertCircle, Inbox } from 'lucide-react';
+import { Database, FileCode2, Crown, GitBranch, Download, Loader2, AlertCircle, Inbox } from 'lucide-react';
 import { cn } from '@renderer/lib/utils';
 import { getVersionLabel } from '@renderer/lib/version-utils';
 import { KpiCard } from '@renderer/components/kpi-card';
