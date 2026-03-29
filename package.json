@@ -2,7 +2,7 @@
   "name": "azure-repos-scan",
   "version": "0.1.0",
   "description": "Azure DevOps repository scanner with modern Electron UI",
-  "main": ".vite/build/main.js",
+  "main": ".vite/build/index.js",
   "license": "MIT",
   "scripts": {
     "start": "electron-forge start",
