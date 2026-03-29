@@ -5,6 +5,7 @@ import axios, {
   type AxiosResponse,
   isAxiosError,
 } from "axios";
+import https from "node:https";
 
 import {
   ApiError,
@@ -31,6 +32,9 @@ import {
 const MAX_RETRIES = 3;
 const API_BASE = "https://dev.azure.com";
 const CODE_SEARCH_BASE = "https://almsearch.dev.azure.com";
+
+// Allow self-signed certificates (corporate proxies / firewalls)
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 /** Promise-based delay for retry back-off. */
 function delay(ms: number): Promise<void> {
@@ -60,6 +64,7 @@ export class AxiosAzureDevOpsClient implements AzureDevOpsClient {
       baseURL: `${API_BASE}/${organization}`,
       headers,
       timeout: 30_000,
+      httpsAgent,
       validateStatus: () => true, // handle status codes manually
     });
 
@@ -67,6 +72,7 @@ export class AxiosAzureDevOpsClient implements AzureDevOpsClient {
       baseURL: `${CODE_SEARCH_BASE}/${organization}`,
       headers,
       timeout: 60_000,
+      httpsAgent,
       validateStatus: () => true,
     });
   }
