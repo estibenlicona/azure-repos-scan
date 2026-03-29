@@ -1,5 +1,4 @@
 import { ipcMain, BrowserWindow } from 'electron';
-import { writeFile } from 'node:fs/promises';
 import { AxiosAzureDevOpsClient } from './infrastructure/adapters/azure-devops-client.js';
 import { JsonQueryStore } from './infrastructure/persistence/query-store.js';
 import { SettingsStore } from './infrastructure/persistence/settings-store.js';
@@ -179,15 +178,5 @@ export function registerAppIpcHandlers(getMainWindow: () => BrowserWindow | null
       description: p.description,
       url: p.url,
     }));
-  });
-
-  // export:image — Save a base64 PNG data URL to a file
-  ipcMain.handle('export:image', async (_event, params: {
-    imageData: string;
-    outputPath: string;
-  }) => {
-    const base64 = params.imageData.replace(/^data:image\/png;base64,/, '');
-    await writeFile(params.outputPath, Buffer.from(base64, 'base64'));
-    return params.outputPath;
   });
 }

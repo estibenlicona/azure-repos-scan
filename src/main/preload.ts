@@ -46,6 +46,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     outputPath: string;
   }): Promise<string> => ipcRenderer.invoke('export:image', params),
 
+  exportPdf: (outputPath: string): Promise<string> =>
+    ipcRenderer.invoke('export:pdf', outputPath),
+
   showSaveDialog: (options: {
     title: string;
     defaultPath: string;

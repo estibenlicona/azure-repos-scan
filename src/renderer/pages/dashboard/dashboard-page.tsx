@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { Database, FileCode2, Crown, GitBranch, Camera, Loader2, AlertCircle, Inbox } from 'lucide-react';
+import { Database, FileCode2, Crown, GitBranch, Camera, FileText, Loader2, AlertCircle, Inbox } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { cn } from '@renderer/lib/utils';
 import { getVersionLabel } from '@renderer/lib/version-utils';
@@ -24,29 +24,44 @@ export function DashboardPage(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleExport = useCallback(async () => {
+  const handleExportPng = useCallback(async () => {
     if (!dashboardRef.current) return;
-
     try {
       setIsExporting(true);
-
       const filePath = await ipcClient.export.saveDialog({
         title: 'Exportar dashboard como imagen',
         defaultPath: `dashboard-${store.selectedDate || 'export'}.png`,
         filters: [{ name: 'PNG', extensions: ['png'] }],
       });
-
       if (!filePath) return;
 
       const imageData = await toPng(dashboardRef.current, {
         backgroundColor: '#0d1117',
         pixelRatio: 2,
       });
-
       await ipcClient.export.image(imageData, filePath);
       toast.success('Dashboard exportado como imagen');
     } catch {
-      toast.error('Error al exportar el dashboard');
+      toast.error('Error al exportar como imagen');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [store.selectedDate]);
+
+  const handleExportPdf = useCallback(async () => {
+    try {
+      setIsExporting(true);
+      const filePath = await ipcClient.export.saveDialog({
+        title: 'Exportar dashboard como PDF',
+        defaultPath: `dashboard-${store.selectedDate || 'export'}.pdf`,
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      });
+      if (!filePath) return;
+
+      await ipcClient.export.pdf(filePath);
+      toast.success('Dashboard exportado como PDF');
+    } catch {
+      toast.error('Error al exportar como PDF');
     } finally {
       setIsExporting(false);
     }
@@ -180,19 +195,37 @@ export function DashboardPage(): React.JSX.Element {
           </select>
 
           <button
-            onClick={() => void handleExport()}
+            onClick={() => void handleExportPng()}
             disabled={isExporting || store.loadState.status !== 'loaded'}
             className={cn(
               'flex items-center gap-1.5 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm',
               'text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50',
             )}
+            title="Exportar como imagen PNG"
           >
             {isExporting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Camera className="h-3.5 w-3.5" />
             )}
-            Exportar imagen
+            PNG
+          </button>
+
+          <button
+            onClick={() => void handleExportPdf()}
+            disabled={isExporting || store.loadState.status !== 'loaded'}
+            className={cn(
+              'flex items-center gap-1.5 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm',
+              'text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50',
+            )}
+            title="Exportar como PDF"
+          >
+            {isExporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <FileText className="h-3.5 w-3.5" />
+            )}
+            PDF
           </button>
         </div>
       </div>

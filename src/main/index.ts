@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { registerAppIpcHandlers } from './ipc-handlers.js';
 
@@ -48,6 +49,23 @@ function registerIpcHandlers(): void {
   ipcMain.handle('dialog:save', async (_event, options) => {
     const result = await dialog.showSaveDialog(mainWindow, options);
     return result.canceled ? null : result.filePath;
+  });
+
+  // export:image — Save a base64 PNG data URL to a file
+  ipcMain.handle('export:image', async (_event, params: { imageData: string; outputPath: string }) => {
+    const base64 = params.imageData.replace(/^data:image\/png;base64,/, '');
+    await writeFile(params.outputPath, Buffer.from(base64, 'base64'));
+    return params.outputPath;
+  });
+
+  // export:pdf — Capture the current window as PDF
+  ipcMain.handle('export:pdf', async (_event, outputPath: string) => {
+    const pdfData = await mainWindow.webContents.printToPDF({
+      printBackground: true,
+      landscape: true,
+    });
+    await writeFile(outputPath, pdfData);
+    return outputPath;
   });
 }
 

@@ -35,6 +35,7 @@ export interface ElectronAPI {
   dashboardEvolution: (months?: number) => Promise<unknown>;
   exportExcel: (params: { hits: unknown[]; outputPath: string }) => Promise<string>;
   exportImage: (params: { imageData: string; outputPath: string }) => Promise<string>;
+  exportPdf: (outputPath: string) => Promise<string>;
   showSaveDialog: (options: SaveDialogOptions) => Promise<string | null>;
   settingsGet: (key: string) => Promise<string>;
   settingsSet: (key: string, value: string) => Promise<void>;

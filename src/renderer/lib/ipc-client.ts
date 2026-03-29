@@ -24,6 +24,7 @@ export const ipcClient = {
   export: {
     excel: (hits: unknown[], outputPath: string) => getApi().exportExcel({ hits, outputPath }),
     image: (imageData: string, outputPath: string) => getApi().exportImage({ imageData, outputPath }),
+    pdf: (outputPath: string) => getApi().exportPdf(outputPath),
     saveDialog: (options: SaveDialogOptions) => getApi().showSaveDialog(options),
   },
   settings: {
